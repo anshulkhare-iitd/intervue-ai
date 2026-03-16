@@ -1,0 +1,109 @@
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Mirrors the signed-in Clerk user; `id` is Clerk's user id (e.g. user_...).
+model User {
+  id        String   @id
+  email     String?
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  resumes           Resume[]
+  interviewSessions InterviewSession[]
+}
+
+model Resume {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageKey  String
+  fileName    String?
+  mimeType    String?
+  parsedData  Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  atsReports AtsReport[]
+  interviews InterviewSession[]
+
+  @@index([userId])
+}
+
+model AtsReport {
+  id          String   @id @default(cuid())
+  resumeId    String
+  resume      Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  targetRole  String?
+  score       Int?
+  suggestions Json?
+  createdAt   DateTime @default(now())
+
+  @@index([resumeId])
+}
+
+model InterviewSession {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeId      String?
+  resume        Resume?   @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  role          String
+  difficulty    String
+  interviewType String
+  status        String
+  config        Json?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  questions InterviewQuestion[]
+  scorecard Scorecard?
+
+  @@index([userId])
+}
+
+model InterviewQuestion {
+  id           String   @id @default(cuid())
+  sessionId    String
+  session      InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  order        Int
+  questionText String   @db.Text
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  answers InterviewAnswer[]
+
+  @@index([sessionId, order])
+}
+
+model InterviewAnswer {
+  id           String   @id @default(cuid())
+  questionId   String
+  question     InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  transcript   String   @db.Text
+  audioUrl     String?
+  evaluation   Json?
+  createdAt    DateTime @default(now())
+
+  @@index([questionId])
+}
+
+model Scorecard {
+  id           String   @id @default(cuid())
+  sessionId    String   @unique
+  session      InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  overallScore Int?
+  breakdown    Json?
+  feedback     Json?
+  createdAt    DateTime @default(now())
+}
