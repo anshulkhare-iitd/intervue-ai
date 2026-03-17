@@ -14,11 +14,17 @@ export default async function DashboardPage() {
         <UserButton />
       </header>
       <p className="text-muted-foreground text-sm">
-        Resumes and interview sessions will appear here in upcoming milestones.
+        Upload a resume and run parsing from the resume workspace. Interview sessions will show
+        here in a later milestone.
       </p>
-      <Button variant="outline" size="sm" className="w-fit" asChild>
-        <Link href="/">Back home</Link>
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" asChild>
+          <Link href="/resume">Resume & upload</Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/">Back home</Link>
+        </Button>
+      </div>
     </div>
   );
 }
