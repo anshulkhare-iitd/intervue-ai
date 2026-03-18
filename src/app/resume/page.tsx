@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { ParsedResumePreview } from "@/components/resume/parsed-preview";
 import { ParseResumeButton } from "@/components/resume/parse-resume-button";
+import { RunAtsPanel } from "@/components/resume/run-ats-panel";
 import { ResumeUploadForm } from "@/components/resume/resume-upload-form";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db";
@@ -21,6 +22,13 @@ export default async function ResumePage() {
   const resumes = await prisma.resume.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
+    include: {
+      atsReports: {
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: { id: true, createdAt: true },
+      },
+    },
   });
 
   return (
@@ -60,7 +68,16 @@ export default async function ResumePage() {
                 </div>
 
                 {r.parsedData ? (
-                  <ParsedResumePreview parsedData={r.parsedData} />
+                  <>
+                    <ParsedResumePreview parsedData={r.parsedData} />
+                    <RunAtsPanel
+                      resumeId={r.id}
+                      recentReportIds={r.atsReports.map((a) => ({
+                        id: a.id,
+                        createdAt: a.createdAt.toISOString(),
+                      }))}
+                    />
+                  </>
                 ) : (
                   <p className="text-muted-foreground text-sm">
                     Parsed profile will appear here after you run the parser.
