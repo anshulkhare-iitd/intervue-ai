@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IntervueAI
 
-## Getting Started
+IntervueAI is a software-engineering-focused mock interview app built with Next.js App Router.
 
-First, run the development server:
+Current V1 flow:
+- Auth with Clerk
+- Resume upload (Vercel Blob)
+- Resume parse (AI structured JSON)
+- ATS report generation
+- Text-first adaptive interview loop (with browser mic dictation + optional read-aloud)
+- Final scorecard generation
+
+## Stack
+
+- Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- Clerk for auth
+- PostgreSQL + Prisma
+- Vercel Blob for resume storage
+- AI SDK + OpenAI for parsing, ATS, interview questioning/evaluation
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill:
+
+- `NEXT_PUBLIC_APP_URL`
+- `DATABASE_URL`
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `BLOB_READ_WRITE_TOKEN`
+- `OPENAI_API_KEY`
+- optional: `OPENAI_MODEL`
+
+## Local Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+pnpm db:generate
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run migrations in development:
 
-## Learn More
+```bash
+pnpm db:migrate
+```
 
-To learn more about Next.js, take a look at the following resources:
+For deploy/runtime schema sync, use your preferred Prisma deployment strategy (typically `prisma migrate deploy` in CI).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Useful Commands
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+pnpm lint
+pnpm build
+pnpm db:push
+```
 
-## Deploy on Vercel
+## Deploy (Vercel)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Push to GitHub.
+2. Import repo in Vercel.
+3. Configure all environment variables from `.env.example`.
+4. Ensure your database is reachable from Vercel.
+5. Deploy.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Voice features in V1 use browser Web Speech APIs (no extra backend key required). Availability depends on browser support.

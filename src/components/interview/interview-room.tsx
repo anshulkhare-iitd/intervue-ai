@@ -45,13 +45,61 @@ type Props = {
   initialSession: SessionPayload;
 };
 
+type SpeechRecognitionAlternativeLike = {
+  transcript: string;
+};
+
+type SpeechRecognitionResultLike = {
+  0: SpeechRecognitionAlternativeLike;
+};
+
+type SpeechRecognitionEventLike = {
+  results: ArrayLike<SpeechRecognitionResultLike>;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
+function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") return null;
+  if ("SpeechRecognition" in window) {
+    return window.SpeechRecognition as SpeechRecognitionConstructor;
+  }
+  if (window.webkitSpeechRecognition) {
+    return window.webkitSpeechRecognition;
+  }
+  return null;
+}
+
 export function InterviewRoom({ sessionId, initialSession }: Props) {
   const router = useRouter();
   const [session, setSession] = useState<SessionPayload>(initialSession);
   const [error, setError] = useState<string | null>(null);
   const [answerText, setAnswerText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const bootstrapped = useRef(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const activeQuestionIdRef = useRef<string | null>(null);
+  const speechTextRef = useRef("");
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/sessions/${sessionId}`);
@@ -81,10 +129,67 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
     return session.questions.find((q) => q.answers.length === 0) ?? null;
   }, [session]);
 
+  const draftKey = useMemo(() => {
+    return currentQuestion ? `interview-draft:${sessionId}:${currentQuestion.id}` : null;
+  }, [currentQuestion, sessionId]);
+
   const allAnswered = useMemo(() => {
     if (!session || session.questions.length === 0) return false;
     return session.questions.every((q) => q.answers.length > 0);
   }, [session]);
+
+  useEffect(() => {
+    setSpeechSupported(getSpeechRecognitionConstructor() !== null);
+  }, []);
+
+  useEffect(() => {
+    if (!currentQuestion || !draftKey) return;
+    if (activeQuestionIdRef.current === currentQuestion.id) return;
+
+    activeQuestionIdRef.current = currentQuestion.id;
+    let cancelled = false;
+
+    setTimeout(() => {
+      if (cancelled) return;
+      const saved = localStorage.getItem(draftKey);
+      startTransition(() => {
+        setAnswerText(saved ?? "");
+      });
+    }, 0);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentQuestion, draftKey]);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    localStorage.setItem(draftKey, answerText);
+  }, [answerText, draftKey]);
+
+  useEffect(() => {
+    if (!currentQuestion || !ttsEnabled || typeof window === "undefined") return;
+    if (!("speechSynthesis" in window)) return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(currentQuestion.questionText);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, [currentQuestion, ttsEnabled]);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!session || session.status === "completed") return;
@@ -143,6 +248,8 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
         setError(data.error ?? "Submit failed");
         return;
       }
+      recognitionRef.current?.stop();
+      if (draftKey) localStorage.removeItem(draftKey);
       setAnswerText("");
       await load();
     } catch (e) {
@@ -192,6 +299,55 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
     }
   }
 
+  function startListening() {
+    if (!currentQuestion || busy) return;
+    const Ctor = getSpeechRecognitionConstructor();
+    if (!Ctor) {
+      setError("Speech recognition is not supported in this browser.");
+      return;
+    }
+    recognitionRef.current?.stop();
+    speechTextRef.current = "";
+    const rec = new Ctor();
+    recognitionRef.current = rec;
+    rec.lang = "en-US";
+    rec.continuous = true;
+    rec.interimResults = true;
+
+    rec.onresult = (event: SpeechRecognitionEventLike) => {
+      let full = "";
+      for (let i = 0; i < event.results.length; i += 1) {
+        const transcript = event.results[i]?.[0]?.transcript ?? "";
+        full += `${transcript} `;
+      }
+      speechTextRef.current = full.trim();
+      startTransition(() => {
+        setAnswerText(speechTextRef.current);
+      });
+    };
+
+    rec.onerror = () => {
+      startTransition(() => {
+        setListening(false);
+      });
+    };
+
+    rec.onend = () => {
+      startTransition(() => {
+        setListening(false);
+      });
+    };
+
+    setError(null);
+    setListening(true);
+    rec.start();
+  }
+
+  function stopListening() {
+    recognitionRef.current?.stop();
+    setListening(false);
+  }
+
   const canAskMore = session.questions.length < maxQuestions;
 
   return (
@@ -213,6 +369,34 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
       {currentQuestion ? (
         <div className="space-y-4 rounded-lg border p-5">
           <p className="text-sm font-medium leading-relaxed">{currentQuestion.questionText}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {speechSupported ? (
+              listening ? (
+                <Button type="button" variant="secondary" onClick={stopListening} disabled={busy}>
+                  Stop mic
+                </Button>
+              ) : (
+                <Button type="button" variant="secondary" onClick={startListening} disabled={busy}>
+                  Start mic
+                </Button>
+              )
+            ) : (
+              <span className="text-muted-foreground text-xs">
+                Browser mic dictation unavailable
+              </span>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTtsEnabled((v) => !v)}
+              disabled={busy}
+            >
+              {ttsEnabled ? "Read-aloud on" : "Read-aloud off"}
+            </Button>
+            {listening ? (
+              <span className="text-muted-foreground text-xs">Listening… speak naturally.</span>
+            ) : null}
+          </div>
           <textarea
             value={answerText}
             onChange={(e) => setAnswerText(e.target.value)}
@@ -221,6 +405,9 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
             className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-36 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             disabled={busy}
           />
+          <p className="text-muted-foreground text-xs">
+            Draft autosaves for this question. You can refresh and continue.
+          </p>
           <Button type="button" onClick={submitAnswer} disabled={busy}>
             {busy ? "Saving…" : "Submit answer"}
           </Button>
