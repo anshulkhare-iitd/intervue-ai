@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   const pathname = `resumes/${userId}/${Date.now()}-${safeName}`;
 
   const blob = await put(pathname, buffer, {
-    access: "public",
+    access: "private",
     token: process.env.BLOB_READ_WRITE_TOKEN,
     contentType: mimeType,
   });

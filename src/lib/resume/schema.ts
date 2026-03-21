@@ -2,30 +2,30 @@ import { z } from "zod";
 
 /** Structured resume profile produced by the parser LLM step (V1). */
 export const parsedResumeSchema = z.object({
-  headline: z.string().optional(),
-  summary: z.string().optional(),
+  headline: z.string().nullable(),
+  summary: z.string().nullable(),
   skills: z.array(z.string()),
   experience: z.array(
     z.object({
       company: z.string(),
       title: z.string(),
-      start: z.string().optional(),
-      end: z.string().optional(),
+      start: z.string().nullable(),
+      end: z.string().nullable(),
       bullets: z.array(z.string()),
     }),
   ),
   projects: z.array(
     z.object({
       name: z.string(),
-      description: z.string().optional(),
-      tech: z.array(z.string()).optional(),
+      description: z.string().nullable(),
+      tech: z.array(z.string()),
     }),
   ),
   education: z.array(
     z.object({
       school: z.string(),
-      degree: z.string().optional(),
-      year: z.string().optional(),
+      degree: z.string().nullable(),
+      year: z.string().nullable(),
     }),
   ),
   keywords: z.array(z.string()),

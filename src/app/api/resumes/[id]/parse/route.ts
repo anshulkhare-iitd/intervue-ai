@@ -8,6 +8,30 @@ import { resumeParsedDataSchema } from "@/lib/resume/schema";
 
 export const runtime = "nodejs";
 
+function getParseErrorDetails(error: unknown): { status: number; message: string } {
+  if (!(error instanceof Error)) {
+    return { status: 500, message: "Resume parsing failed unexpectedly" };
+  }
+
+  const message = error.message.toLowerCase();
+  if (message.includes("insufficient_quota") || message.includes("exceeded your current quota")) {
+    return {
+      status: 503,
+      message:
+        "Resume parsing is temporarily unavailable because the OpenAI API quota is exhausted. Please update billing/quota and try again.",
+    };
+  }
+
+  if (message.includes("rate limit") || message.includes("429")) {
+    return {
+      status: 503,
+      message: "Resume parsing is temporarily rate limited. Please retry in a moment.",
+    };
+  }
+
+  return { status: 500, message: "Resume parsing failed. Please try again." };
+}
+
 export async function POST(
   _request: Request,
   context: { params: Promise<{ id: string }> },
@@ -39,7 +63,18 @@ export async function POST(
     return NextResponse.json({ error: "OPENAI_API_KEY is not configured" }, { status: 503 });
   }
 
-  const fileRes = await fetch(resume.storageKey);
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return NextResponse.json(
+      { error: "BLOB_READ_WRITE_TOKEN is not configured" },
+      { status: 503 },
+    );
+  }
+
+  const fileRes = await fetch(resume.storageKey, {
+    headers: {
+      Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+    },
+  });
   if (!fileRes.ok) {
     return NextResponse.json({ error: "Failed to load file from storage" }, { status: 502 });
   }
@@ -54,7 +89,13 @@ export async function POST(
     );
   }
 
-  const parsed = await parseResumeFromPlainText(plain);
+  let parsed: Awaited<ReturnType<typeof parseResumeFromPlainText>>;
+  try {
+    parsed = await parseResumeFromPlainText(plain);
+  } catch (error) {
+    const { status, message } = getParseErrorDetails(error);
+    return NextResponse.json({ error: message }, { status });
+  }
 
   const parsedData = resumeParsedDataSchema.parse({
     profile: parsed.profile,

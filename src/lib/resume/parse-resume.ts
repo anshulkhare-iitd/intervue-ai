@@ -24,7 +24,7 @@ export async function parseResumeFromPlainText(plainText: string): Promise<{
   const { object } = await generateObject({
     model: openai(modelName),
     schema: parsedResumeSchema,
-    prompt: `You extract structured resume data for software-engineering candidates from plain text only. Do not invent employers, dates, or projects; omit unknown fields. Use empty arrays where there is no data.
+    prompt: `You extract structured resume data for software-engineering candidates from plain text only. Do not invent employers, dates, or projects. Use null for unknown scalar fields and empty arrays where there is no list data.
 
 Plain text (possibly truncated: ${truncated ? "yes" : "no"}):
 """
