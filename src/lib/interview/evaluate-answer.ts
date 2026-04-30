@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 
 import { answerEvaluationSchema, type AnswerEvaluation } from "@/lib/interview/schema";
 import type { InterviewType } from "@/lib/interview/schema";
@@ -19,9 +19,9 @@ export async function evaluateAnswer(input: {
         ? "Weight communication, ownership, and collaboration evidence highly."
         : "Balance technical and behavioral signals.";
 
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: google(modelName),
-    schema: answerEvaluationSchema,
+    output: Output.object({ schema: answerEvaluationSchema }),
     prompt: `You evaluate a mock interview answer for a software engineering candidate.
 
 ${typeHint}
@@ -36,5 +36,5 @@ ${input.transcript}
 Return structured scores 0–100 per axis, concrete strengths/weaknesses, an improved concise sample answer, and 0–3 followUpTopics if the answer was vague or missing depth.`,
   });
 
-  return { evaluation: object };
+  return { evaluation: output };
 }

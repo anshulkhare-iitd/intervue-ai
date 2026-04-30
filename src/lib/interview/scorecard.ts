@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 
 import { compositeScore } from "@/lib/interview/scoring";
 import {
@@ -83,9 +83,9 @@ export async function synthesizeFeedback(input: {
     weaknesses: r.evaluation.weaknesses,
   }));
 
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: google(modelName),
-    schema: scorecardFeedbackSchema,
+    output: Output.object({ schema: scorecardFeedbackSchema }),
     prompt: `Summarize this mock interview for a software engineering candidate.
 
 Interview type: ${input.interviewType}
@@ -97,5 +97,5 @@ ${JSON.stringify(summaryRows, null, 2)}
 Write an honest, encouraging summary. topImprovements and practiceTopics must be concrete and non-repetitive.`,
   });
 
-  return object;
+  return output;
 }

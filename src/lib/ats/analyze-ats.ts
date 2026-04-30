@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 
 import { atsReportPayloadSchema, type AtsReportPayload } from "@/lib/ats/schema";
 import type { ParsedResume } from "@/lib/resume/schema";
@@ -14,9 +14,9 @@ export async function analyzeAtsForRole(
     ? `Target role: ${targetRole.trim()}`
     : "Target role: not specified — give a generic software-engineering ATS assessment.";
 
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: google(modelName),
-    schema: atsReportPayloadSchema,
+    output: Output.object({ schema: atsReportPayloadSchema }),
     prompt: `You are an ATS (applicant tracking system) and hiring-tooling analyst for software engineering resumes.
 
 ${roleLine}
@@ -27,5 +27,5 @@ Structured resume (JSON):
 ${JSON.stringify(profile, null, 2)}`,
   });
 
-  return { payload: object, model: modelName };
+  return { payload: output, model: modelName };
 }

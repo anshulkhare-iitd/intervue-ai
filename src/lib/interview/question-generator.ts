@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 
 import {
   generatedQuestionSchema,
@@ -34,9 +34,9 @@ export async function generateNextQuestion(input: {
     )
     .join("\n\n");
 
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: google(modelName),
-    schema: generatedQuestionSchema,
+    output: Output.object({ schema: generatedQuestionSchema }),
     prompt: `You are an expert software engineering interviewer. Produce ONE next interview question only.
 
 Context:
@@ -59,5 +59,5 @@ Rules:
 - metadata.isFollowUp: true if following up on a prior weak answer.`,
   });
 
-  return { question: object };
+  return { question: output };
 }
