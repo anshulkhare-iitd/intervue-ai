@@ -14,11 +14,15 @@ function getParseErrorDetails(error: unknown): { status: number; message: string
   }
 
   const message = error.message.toLowerCase();
-  if (message.includes("insufficient_quota") || message.includes("exceeded your current quota")) {
+  if (
+    message.includes("insufficient_quota") ||
+    message.includes("exceeded your current quota") ||
+    message.includes("resource_exhausted") ||
+    message.includes("quota exceeded")
+  ) {
     return {
       status: 503,
-      message:
-        "Resume parsing is temporarily unavailable because the OpenAI API quota is exhausted. Please update billing/quota and try again.",
+      message: "Resume parsing is temporarily unavailable due to API quota limits. Please try again later.",
     };
   }
 
@@ -59,8 +63,8 @@ export async function POST(
     return NextResponse.json({ error: "Unknown file type" }, { status: 400 });
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OPENAI_API_KEY is not configured" }, { status: 503 });
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    return NextResponse.json({ error: "GOOGLE_GENERATIVE_AI_API_KEY is not configured" }, { status: 503 });
   }
 
   if (!process.env.BLOB_READ_WRITE_TOKEN) {

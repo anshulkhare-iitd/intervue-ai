@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 
 import { answerEvaluationSchema, type AnswerEvaluation } from "@/lib/interview/schema";
@@ -10,7 +10,7 @@ export async function evaluateAnswer(input: {
   interviewType: InterviewType;
   difficulty: string;
 }): Promise<{ evaluation: AnswerEvaluation }> {
-  const modelName = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
   const typeHint =
     input.interviewType === "technical"
@@ -20,7 +20,7 @@ export async function evaluateAnswer(input: {
         : "Balance technical and behavioral signals.";
 
   const { object } = await generateObject({
-    model: openai(modelName),
+    model: google(modelName),
     schema: answerEvaluationSchema,
     prompt: `You evaluate a mock interview answer for a software engineering candidate.
 

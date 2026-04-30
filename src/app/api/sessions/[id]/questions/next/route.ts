@@ -26,8 +26,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
   await syncCurrentUser();
 
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OPENAI_API_KEY is not configured" }, { status: 503 });
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    return NextResponse.json({ error: "GOOGLE_GENERATIVE_AI_API_KEY is not configured" }, { status: 503 });
   }
 
   const { id: sessionId } = await context.params;

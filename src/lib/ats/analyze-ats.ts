@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 
 import { atsReportPayloadSchema, type AtsReportPayload } from "@/lib/ats/schema";
@@ -8,14 +8,14 @@ export async function analyzeAtsForRole(
   profile: ParsedResume,
   targetRole: string | null,
 ): Promise<{ payload: AtsReportPayload; model: string }> {
-  const modelName = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
   const roleLine = targetRole?.trim()
     ? `Target role: ${targetRole.trim()}`
     : "Target role: not specified — give a generic software-engineering ATS assessment.";
 
   const { object } = await generateObject({
-    model: openai(modelName),
+    model: google(modelName),
     schema: atsReportPayloadSchema,
     prompt: `You are an ATS (applicant tracking system) and hiring-tooling analyst for software engineering resumes.
 

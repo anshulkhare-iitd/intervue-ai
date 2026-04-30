@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 
 import {
@@ -24,7 +24,7 @@ export async function generateNextQuestion(input: {
   questionIndex: number;
   maxQuestions: number;
 }): Promise<{ question: GeneratedQuestion }> {
-  const modelName = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
   const prior = input.priorTurns
     .slice(-3)
@@ -35,7 +35,7 @@ export async function generateNextQuestion(input: {
     .join("\n\n");
 
   const { object } = await generateObject({
-    model: openai(modelName),
+    model: google(modelName),
     schema: generatedQuestionSchema,
     prompt: `You are an expert software engineering interviewer. Produce ONE next interview question only.
 

@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 
 import { compositeScore } from "@/lib/interview/scoring";
@@ -74,7 +74,7 @@ export async function synthesizeFeedback(input: {
   rows: Row[];
   breakdown: ScorecardBreakdown;
 }): Promise<ScorecardFeedback> {
-  const modelName = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
   const summaryRows = input.rows.map((r) => ({
     q: r.questionText,
@@ -84,7 +84,7 @@ export async function synthesizeFeedback(input: {
   }));
 
   const { object } = await generateObject({
-    model: openai(modelName),
+    model: google(modelName),
     schema: scorecardFeedbackSchema,
     prompt: `Summarize this mock interview for a software engineering candidate.
 

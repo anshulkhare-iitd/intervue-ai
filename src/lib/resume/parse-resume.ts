@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 
 import { parsedResumeSchema, type ParsedResume } from "@/lib/resume/schema";
@@ -16,13 +16,13 @@ export async function parseResumeFromPlainText(plainText: string): Promise<{
   rawTextLength: number;
   rawTextPreview: string;
 }> {
-  const modelName = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const modelName = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
   const { text, truncated } = truncateForModel(plainText);
   const rawTextLength = plainText.length;
   const rawTextPreview = plainText.slice(0, 400);
 
   const { object } = await generateObject({
-    model: openai(modelName),
+    model: google(modelName),
     schema: parsedResumeSchema,
     prompt: `You extract structured resume data for software-engineering candidates from plain text only. Do not invent employers, dates, or projects. Use null for unknown scalar fields and empty arrays where there is no list data.
 
