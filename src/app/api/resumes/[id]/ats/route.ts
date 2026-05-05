@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 
 import { analyzeAtsForRole } from "@/lib/ats/analyze-ats";
 import { rateLimit } from "@/lib/rate-limit";
@@ -13,6 +14,45 @@ export const runtime = "nodejs";
 type Body = {
   targetRole?: string | null;
 };
+
+function getAtsErrorDetails(error: unknown): { status: number; message: string } {
+  if (error instanceof ZodError) {
+    return {
+      status: 422,
+      message: "Could not validate ATS report output. Please retry.",
+    };
+  }
+
+  if (!(error instanceof Error)) {
+    return {
+      status: 500,
+      message: "ATS report generation failed unexpectedly.",
+    };
+  }
+
+  const message = error.message.toLowerCase();
+  if (
+    message.includes("high demand") ||
+    message.includes("unavailable") ||
+    message.includes("503") ||
+    message.includes("rate limit") ||
+    message.includes("429") ||
+    message.includes("timed out") ||
+    message.includes("resource_exhausted") ||
+    message.includes("quota exceeded") ||
+    message.includes("insufficient_quota")
+  ) {
+    return {
+      status: 503,
+      message: "ATS report generation is temporarily unavailable. Please retry in a moment.",
+    };
+  }
+
+  return {
+    status: 500,
+    message: "ATS report generation failed. Please try again.",
+  };
+}
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
@@ -63,8 +103,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     );
   }
 
-  const { payload } = await analyzeAtsForRole(parsed.data.profile, targetRole);
-  atsReportPayloadSchema.parse(payload);
+  let payload: Awaited<ReturnType<typeof analyzeAtsForRole>>["payload"];
+  try {
+    const analyzed = await analyzeAtsForRole(parsed.data.profile, targetRole);
+    payload = analyzed.payload;
+    atsReportPayloadSchema.parse(payload);
+  } catch (error) {
+    console.error("ATS report generation failed", { resumeId, error });
+    const { status, message } = getAtsErrorDetails(error);
+    return NextResponse.json({ error: message }, { status });
+  }
 
   const report = await prisma.atsReport.create({
     data: {

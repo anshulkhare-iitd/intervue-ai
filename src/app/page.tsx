@@ -1,8 +1,16 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
+
+  if (userId) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center bg-background px-6 py-24">
       <main className="flex w-full max-w-lg flex-col items-center gap-8 text-center">
@@ -25,9 +33,6 @@ export default function Home() {
             <Link href="/sign-up">Create account</Link>
           </Button>
         </div>
-        <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
-          <Link href="/dashboard">Dashboard</Link>
-        </Button>
       </main>
     </div>
   );

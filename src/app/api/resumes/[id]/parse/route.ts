@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 
 import { prisma } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
@@ -31,6 +32,26 @@ function getParseErrorDetails(error: unknown): { status: number; message: string
     return {
       status: 503,
       message: "Resume parsing is temporarily rate limited. Please retry in a moment.",
+    };
+  }
+
+  if (
+    message.includes("timed out") ||
+    message.includes("deadline exceeded") ||
+    message.includes("overloaded") ||
+    message.includes("service unavailable") ||
+    message.includes("temporarily unavailable")
+  ) {
+    return {
+      status: 503,
+      message: "Resume parsing is temporarily unavailable. Please retry in a moment.",
+    };
+  }
+
+  if (error instanceof ZodError) {
+    return {
+      status: 422,
+      message: "Could not parse this resume format reliably. Please try another file.",
     };
   }
 
@@ -106,17 +127,25 @@ export async function POST(
   try {
     parsed = await parseResumeFromPlainText(plain);
   } catch (error) {
+    console.error("Resume parse model step failed", { resumeId: id, error });
     const { status, message } = getParseErrorDetails(error);
     return NextResponse.json({ error: message }, { status });
   }
 
-  const parsedData = resumeParsedDataSchema.parse({
-    profile: parsed.profile,
-    rawTextLength: parsed.rawTextLength,
-    rawTextPreview: parsed.rawTextPreview,
-    model: parsed.model,
-    parsedAt: new Date().toISOString(),
-  });
+  let parsedData: ReturnType<typeof resumeParsedDataSchema.parse>;
+  try {
+    parsedData = resumeParsedDataSchema.parse({
+      profile: parsed.profile,
+      rawTextLength: parsed.rawTextLength,
+      rawTextPreview: parsed.rawTextPreview,
+      model: parsed.model,
+      parsedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Resume parsed payload validation failed", { resumeId: id, error });
+    const { status, message } = getParseErrorDetails(error);
+    return NextResponse.json({ error: message }, { status });
+  }
 
   const updated = await prisma.resume.update({
     where: { id },
