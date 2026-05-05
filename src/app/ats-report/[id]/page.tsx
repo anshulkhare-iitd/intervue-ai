@@ -54,6 +54,12 @@ export default async function AtsReportPage({ params }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 p-6">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:rounded focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-2"
+      >
+        Skip to main content
+      </a>
       <header className="flex items-center justify-between gap-4">
         <div>
           <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
@@ -66,6 +72,7 @@ export default async function AtsReportPage({ params }: Props) {
         <UserButton />
       </header>
 
+      <main id="main-content">
       <ErrorBoundary>
         <AtsReportView
           targetRole={report.targetRole}
@@ -73,6 +80,7 @@ export default async function AtsReportPage({ params }: Props) {
           payload={parsed.data}
         />
       </ErrorBoundary>
+      </main>
 
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" asChild>

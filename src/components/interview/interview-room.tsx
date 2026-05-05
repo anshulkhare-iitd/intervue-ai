@@ -428,6 +428,7 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
             ) : null}
           </div>
           <textarea
+            aria-label="Your answer"
             value={answerText}
             onChange={(e) => setAnswerText(e.target.value)}
             rows={6}
