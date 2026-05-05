@@ -3,6 +3,7 @@ import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { ErrorBoundary } from "@/components/error-boundary";
 import { InterviewRoom, type SessionPayload } from "@/components/interview/interview-room";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db";
@@ -67,7 +68,9 @@ export default async function InterviewSessionPage({ params }: Props) {
         <UserButton />
       </header>
 
-      <InterviewRoom sessionId={id} initialSession={initialSession} />
+      <ErrorBoundary>
+        <InterviewRoom sessionId={id} initialSession={initialSession} />
+      </ErrorBoundary>
 
       <Button variant="outline" size="sm" className="w-fit" asChild>
         <Link href="/interview/setup">Setup</Link>

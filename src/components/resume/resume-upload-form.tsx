@@ -9,6 +9,7 @@ export function ResumeUploadForm() {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,6 +32,7 @@ export function ResumeUploadForm() {
         setError(body.error ?? "Upload failed");
         return;
       }
+      setSuccess(true);
       form.reset();
       router.refresh();
     } finally {
@@ -66,6 +68,9 @@ export function ResumeUploadForm() {
         </Button>
       </div>
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
+      {success ? (
+        <p className="text-sm text-green-600 dark:text-green-400">Resume uploaded successfully.</p>
+      ) : null}
     </form>
   );
 }

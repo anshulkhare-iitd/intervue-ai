@@ -94,10 +94,12 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
   const [answerText, setAnswerText] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const [listeningTooLong, setListeningTooLong] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const bootstrapped = useRef(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const listenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeQuestionIdRef = useRef<string | null>(null);
   const speechTextRef = useRef("");
 
@@ -184,6 +186,7 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
 
   useEffect(() => {
     return () => {
+      clearTimeout(listenTimerRef.current ?? undefined);
       recognitionRef.current?.stop();
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
@@ -327,25 +330,47 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
     };
 
     rec.onerror = () => {
+      clearListenTimers();
       startTransition(() => {
         setListening(false);
+        setListeningTooLong(false);
       });
     };
 
     rec.onend = () => {
+      clearListenTimers();
       startTransition(() => {
         setListening(false);
+        setListeningTooLong(false);
       });
     };
 
     setError(null);
     setListening(true);
+    setListeningTooLong(false);
     rec.start();
+
+    listenTimerRef.current = setTimeout(() => {
+      startTransition(() => setListeningTooLong(true));
+      // auto-stop after another 30s of no speech
+      listenTimerRef.current = setTimeout(() => {
+        recognitionRef.current?.stop();
+      }, 30_000);
+    }, 30_000);
+  }
+
+  function clearListenTimers() {
+    if (listenTimerRef.current !== null) {
+      clearTimeout(listenTimerRef.current);
+      listenTimerRef.current = null;
+    }
   }
 
   function stopListening() {
+    clearListenTimers();
     recognitionRef.current?.stop();
     setListening(false);
+    setListeningTooLong(false);
   }
 
   const canAskMore = session.questions.length < maxQuestions;
@@ -393,8 +418,13 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
             >
               {ttsEnabled ? "Read-aloud on" : "Read-aloud off"}
             </Button>
-            {listening ? (
+            {listening && !listeningTooLong ? (
               <span className="text-muted-foreground text-xs">Listening… speak naturally.</span>
+            ) : null}
+            {listeningTooLong ? (
+              <span className="text-destructive text-xs">
+                Still listening — try speaking clearly, or stop the mic and type your answer.
+              </span>
             ) : null}
           </div>
           <textarea

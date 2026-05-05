@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { AtsReportView } from "@/components/ats/ats-report-view";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Button } from "@/components/ui/button";
 import { atsReportPayloadSchema } from "@/lib/ats/schema";
 import { prisma } from "@/lib/db";
@@ -65,11 +66,13 @@ export default async function AtsReportPage({ params }: Props) {
         <UserButton />
       </header>
 
-      <AtsReportView
-        targetRole={report.targetRole}
-        createdAt={report.createdAt}
-        payload={parsed.data}
-      />
+      <ErrorBoundary>
+        <AtsReportView
+          targetRole={report.targetRole}
+          createdAt={report.createdAt}
+          payload={parsed.data}
+        />
+      </ErrorBoundary>
 
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" asChild>
