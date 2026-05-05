@@ -3,6 +3,7 @@ import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   inferMimeFromFileName,
   isAllowedResumeMimeType,
@@ -17,6 +18,14 @@ export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { allowed, retryAfterSec } = rateLimit(`resumes:upload:${userId}`, 20, 60 * 60 * 1000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
+    );
   }
 
   await syncCurrentUser();

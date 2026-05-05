@@ -7,6 +7,7 @@ import {
   type AnswerEvaluation,
   type InterviewType,
 } from "@/lib/interview/schema";
+import { rateLimit } from "@/lib/rate-limit";
 import { buildBreakdown, synthesizeFeedback } from "@/lib/interview/scorecard";
 import { prisma } from "@/lib/db";
 import { syncCurrentUser } from "@/lib/sync-user";
@@ -21,6 +22,14 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { allowed, retryAfterSec } = rateLimit(`sessions:complete:${userId}`, 15, 60 * 60 * 1000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
+    );
   }
 
   await syncCurrentUser();

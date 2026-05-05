@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { generateNextQuestion } from "@/lib/interview/question-generator";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   INTERVIEW_TYPES,
   answerEvaluationSchema,
@@ -22,6 +23,14 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { allowed, retryAfterSec } = rateLimit(`sessions:questions:${userId}`, 50, 60 * 60 * 1000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
+    );
   }
 
   await syncCurrentUser();

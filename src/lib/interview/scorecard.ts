@@ -1,5 +1,6 @@
 import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
+import { withRetry } from "@/lib/with-retry";
 
 import { compositeScore } from "@/lib/interview/scoring";
 import {
@@ -83,10 +84,11 @@ export async function synthesizeFeedback(input: {
     weaknesses: r.evaluation.weaknesses,
   }));
 
-  const { output } = await generateText({
-    model: google(modelName),
-    output: Output.object({ schema: scorecardFeedbackSchema }),
-    prompt: `Summarize this mock interview for a software engineering candidate.
+  const { output } = await withRetry(() =>
+    generateText({
+      model: google(modelName),
+      output: Output.object({ schema: scorecardFeedbackSchema }),
+      prompt: `Summarize this mock interview for a software engineering candidate.
 
 Interview type: ${input.interviewType}
 Aggregate composite score (0-100): ${input.breakdown.averages.composite}
@@ -95,7 +97,8 @@ Per-question data (JSON):
 ${JSON.stringify(summaryRows, null, 2)}
 
 Write an honest, encouraging summary. topImprovements and practiceTopics must be concrete and non-repetitive.`,
-  });
+    }),
+  );
 
   return output;
 }

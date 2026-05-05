@@ -1,5 +1,6 @@
 import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
+import { withRetry } from "@/lib/with-retry";
 
 import {
   generatedQuestionSchema,
@@ -34,10 +35,11 @@ export async function generateNextQuestion(input: {
     )
     .join("\n\n");
 
-  const { output } = await generateText({
-    model: google(modelName),
-    output: Output.object({ schema: generatedQuestionSchema }),
-    prompt: `You are an expert software engineering interviewer. Produce ONE next interview question only.
+  const { output } = await withRetry(() =>
+    generateText({
+      model: google(modelName),
+      output: Output.object({ schema: generatedQuestionSchema }),
+      prompt: `You are an expert software engineering interviewer. Produce ONE next interview question only.
 
 Context:
 - Role: ${input.role}
@@ -57,7 +59,8 @@ Rules:
 - metadata.intent: short label for why you're asking.
 - metadata.skillTags: 1–4 tags.
 - metadata.isFollowUp: true if following up on a prior weak answer.`,
-  });
+    }),
+  );
 
   return { question: output };
 }

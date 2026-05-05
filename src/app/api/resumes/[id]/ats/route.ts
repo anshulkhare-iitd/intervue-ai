@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { analyzeAtsForRole } from "@/lib/ats/analyze-ats";
+import { rateLimit } from "@/lib/rate-limit";
 import { atsReportPayloadSchema } from "@/lib/ats/schema";
 import { prisma } from "@/lib/db";
 import { resumeParsedDataSchema } from "@/lib/resume/schema";
@@ -17,6 +18,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { allowed, retryAfterSec } = rateLimit(`resumes:ats:${userId}`, 15, 60 * 60 * 1000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
+    );
   }
 
   await syncCurrentUser();

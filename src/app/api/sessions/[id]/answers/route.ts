@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { evaluateAnswer } from "@/lib/interview/evaluate-answer";
+import { rateLimit } from "@/lib/rate-limit";
 import { answerEvaluationSchema, INTERVIEW_TYPES, type InterviewType } from "@/lib/interview/schema";
 import { prisma } from "@/lib/db";
 import { syncCurrentUser } from "@/lib/sync-user";
@@ -22,6 +23,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { allowed, retryAfterSec } = rateLimit(`sessions:answers:${userId}`, 50, 60 * 60 * 1000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
+    );
   }
 
   await syncCurrentUser();

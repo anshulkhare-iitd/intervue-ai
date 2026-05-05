@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { DIFFICULTIES, INTERVIEW_TYPES, sessionSetupConfigSchema } from "@/lib/interview/schema";
 import { prisma } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 import { resumeParsedDataSchema } from "@/lib/resume/schema";
 import { syncCurrentUser } from "@/lib/sync-user";
 
@@ -22,6 +23,14 @@ export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { allowed, retryAfterSec } = rateLimit(`sessions:create:${userId}`, 20, 60 * 60 * 1000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
+    );
   }
 
   await syncCurrentUser();

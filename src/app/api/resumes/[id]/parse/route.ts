@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 import { extractPlainText } from "@/lib/resume/extract-text";
 import { parseResumeFromPlainText } from "@/lib/resume/parse-resume";
 import { resumeParsedDataSchema } from "@/lib/resume/schema";
@@ -43,6 +44,14 @@ export async function POST(
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { allowed, retryAfterSec } = rateLimit(`resumes:parse:${userId}`, 15, 60 * 60 * 1000);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
+    );
   }
 
   const { id } = await context.params;
