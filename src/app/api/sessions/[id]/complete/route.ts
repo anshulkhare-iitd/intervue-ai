@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 
 import {
   answerEvaluationSchema,
@@ -8,7 +9,7 @@ import {
   type InterviewType,
 } from "@/lib/interview/schema";
 import { rateLimit } from "@/lib/rate-limit";
-import { buildBreakdown, synthesizeFeedback } from "@/lib/interview/scorecard";
+import { buildBreakdown, buildFallbackFeedback, synthesizeFeedback } from "@/lib/interview/scorecard";
 import { prisma } from "@/lib/db";
 import { syncCurrentUser } from "@/lib/sync-user";
 
@@ -16,6 +17,44 @@ export const runtime = "nodejs";
 
 function isInterviewType(v: string): v is InterviewType {
   return (INTERVIEW_TYPES as readonly string[]).includes(v);
+}
+
+function getCompleteErrorDetails(error: unknown): { status: number; message: string } {
+  if (error instanceof ZodError) {
+    return {
+      status: 422,
+      message: "Could not validate generated interview feedback. Please retry.",
+    };
+  }
+
+  if (!(error instanceof Error)) {
+    return {
+      status: 500,
+      message: "Could not complete interview due to an unexpected error.",
+    };
+  }
+
+  const message = error.message.toLowerCase();
+  if (
+    message.includes("quota") ||
+    message.includes("resource_exhausted") ||
+    message.includes("rate limit") ||
+    message.includes("429") ||
+    message.includes("high demand") ||
+    message.includes("unavailable") ||
+    message.includes("503") ||
+    message.includes("timed out")
+  ) {
+    return {
+      status: 503,
+      message: "Interview feedback is temporarily unavailable. Please retry in a moment.",
+    };
+  }
+
+  return {
+    status: 500,
+    message: "Could not complete interview. Please try again.",
+  };
 }
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -105,31 +144,43 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
   const { breakdown, overallScore } = buildBreakdown(rows, session.interviewType);
 
-  const feedback = await synthesizeFeedback({
-    interviewType: session.interviewType,
-    rows,
-    breakdown,
+  let feedback: Awaited<ReturnType<typeof synthesizeFeedback>>;
+  try {
+    feedback = await synthesizeFeedback({
+      interviewType: session.interviewType,
+      rows,
+      breakdown,
+    });
+  } catch (error) {
+    console.error("Interview completion feedback generation failed", { sessionId, error });
+    feedback = buildFallbackFeedback({
+      interviewType: session.interviewType,
+      rows,
+      breakdown,
+    });
+  }
+
+  const result = await prisma.scorecard.upsert({
+    where: { sessionId: session.id },
+    update: {
+      overallScore,
+      breakdown: breakdown as object,
+      feedback: feedback as object,
+    },
+    create: {
+      sessionId: session.id,
+      overallScore,
+      breakdown: breakdown as object,
+      feedback: feedback as object,
+    },
   });
 
-  const result = await prisma.$transaction(async (tx) => {
-    const scorecard = await tx.scorecard.create({
-      data: {
-        sessionId: session.id,
-        overallScore,
-        breakdown: breakdown as object,
-        feedback: feedback as object,
-      },
-    });
-
-    await tx.interviewSession.update({
-      where: { id: session.id },
-      data: {
-        status: "completed",
-        completedAt: new Date(),
-      },
-    });
-
-    return scorecard;
+  await prisma.interviewSession.update({
+    where: { id: session.id },
+    data: {
+      status: "completed",
+      completedAt: new Date(),
+    },
   });
 
   return NextResponse.json({ scorecard: result });

@@ -87,6 +87,10 @@ function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null 
   return null;
 }
 
+async function readJsonSafe<T>(res: Response): Promise<T> {
+  return (await res.json().catch(() => ({}))) as T;
+}
+
 export function InterviewRoom({ sessionId, initialSession }: Props) {
   const router = useRouter();
   const [session, setSession] = useState<SessionPayload>(initialSession);
@@ -291,12 +295,14 @@ export function InterviewRoom({ sessionId, initialSession }: Props) {
     setError(null);
     try {
       const res = await fetch(`/api/sessions/${sessionId}/complete`, { method: "POST" });
-      const data = (await res.json()) as { error?: string };
+      const data = await readJsonSafe<{ error?: string }>(res);
       if (!res.ok) {
         setError(data.error ?? "Could not complete");
         return;
       }
       router.push(`/interview/report/${sessionId}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not complete");
     } finally {
       setBusy(false);
     }
