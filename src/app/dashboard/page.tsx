@@ -38,9 +38,7 @@ export default async function DashboardPage() {
         <Button size="sm" variant="secondary" asChild>
           <Link href="/interview/setup">Mock interview</Link>
         </Button>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/">Back home</Link>
-        </Button>
+
       </div>
 
       <section className="space-y-3">
